@@ -7,6 +7,19 @@ from torch.utils.data import DataLoader
 
 
 def convert_to_ir_format(samples):
+    """
+    Converts a list of samples (dictionaries) into Information Retrieval (IR) format buffers.
+
+    Args:
+        samples: List of dictionaries, each containing patient linkage data (visits, conditions, metadata).
+
+    Returns:
+        corpus: Dict[d_visit_id, d_conditions]
+        queries: Dict[visit_id, conditions]
+        qrels: Dict[visit_id, Dict[d_visit_id, 1]] (ground truth positive pairs)
+        corpus_meta: Dict[d_visit_id, metadata]
+        queries_meta: Dict[visit_id, metadata]
+    """
     corpus = {}
     queries = {}
     qrels = {}
@@ -24,6 +37,19 @@ def convert_to_ir_format(samples):
 
 
 def generate_candidates(corpus_meta, queries_meta):
+    """
+    Generates candidate positives (hard filters) based on basic metadata (age and identifiers).
+    
+    Candidates are database records that match the query's age and identifiers.
+    This is used to reduce the search space and finding hard negatives.
+
+    Args:
+        corpus_meta: Dict of corpus metadata.
+        queries_meta: Dict of query metadata.
+
+    Returns:
+        candidates: Dict[q_id, List[c_id]] mapping each query to a list of candidate corpus IDs.
+    """
     candidates = {}
     for q_id, q_meta in queries_meta.items():
         age = q_meta["age"]
@@ -43,6 +69,18 @@ def generate_candidates(corpus_meta, queries_meta):
 
 
 def filter_by_candidates(results, qrels, candidates):
+    """
+    Filters search results to only include items present in the candidate lists.
+    Also ensures validation/test ground truth (qrels) are included in the results.
+
+    Args:
+        results: Dict[q_id, Dict[c_id, score]]
+        qrels: Dict[q_id, Dict[c_id, label]]
+        candidates: Dict[q_id, List[c_id]]
+
+    Returns:
+        filtered_results: Dict[q_id, Dict[c_id, score]]
+    """
     filtered_results = {}
     for q_id, scores in results.items():
         c_ids = list(qrels[q_id].keys())
@@ -55,6 +93,14 @@ def filter_by_candidates(results, qrels, candidates):
 
 
 def tvt_split(queries, qrels, train_ratio=0.7, val_ratio=0.1, test_ratio=0.2):
+    """
+    Splits queries and their corresponding qrels into train/val/test sets.
+    The split is done on the query level (unseen queries).
+
+    Returns:
+        train_queries, val_queries, test_queries
+        train_qrels, val_qrels, test_qrels
+    """
     assert train_ratio + val_ratio + test_ratio == 1
     qids = list(queries.keys())
     np.random.shuffle(qids)
@@ -73,17 +119,37 @@ def tvt_split(queries, qrels, train_ratio=0.7, val_ratio=0.1, test_ratio=0.2):
 
 
 def get_bm25_hard_negatives(bm25_model, corpus, queries, qrels):
+    """
+    Mines hard negatives using BM25.
+    
+    For each query, finds corpus items that have high BM25 scores but are not the positive ground truth.
+    Adds these negatives to the qrels with label -1.
+
+    Returns:
+        qrels_w_neg: Updated qrels dictionary containing both positives (1) and negatives (-1).
+
+    Examples:
+        >>> # bm25_model.get_scores(query) -> {doc_id: score}
+        >>> corpus = {"d0": ["fever", "cough"], "d1": ["fever", "rash"]}
+        >>> queries = {"q0": ["fever", "cough"]}
+        >>> qrels = {"q0": {"d0": 1}}  # d0 is q0's positive match
+        >>> qrels_w_neg = get_bm25_hard_negatives(bm25_model, corpus, queries, qrels)
+        >>> qrels_w_neg["q0"]  # positive kept; top query-ranked non-positive labeled -1
+        {'d0': 1, 'd1': -1}
+    """
     qrels_w_neg = {}
     for q_id, q in tqdm.tqdm(queries.items()):
         d_ids = [d_id for d_id in qrels[q_id] if qrels[q_id][d_id] > 0]
-        ds = [corpus[d_id] for d_id in d_ids]
-        for d_id, d in zip(d_ids, ds):
-            scores = bm25_model.get_scores(d)
-            for (ned_d_id, neg_s) in sorted(scores.items(), key=lambda x: x[1],
-                                            reverse=True):
-                if ned_d_id != d_id:
-                    qrels_w_neg[q_id] = {d_id: 1, ned_d_id: -1}
-                    break
+
+        qrels_w_neg[q_id] = {d_id: 1 for d_id in d_ids}
+
+        scores = bm25_model.get_scores(q)
+        ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+        for neg_d_id, neg_s in ranked:
+            if neg_d_id not in d_ids: # exclude every positive, not just d_id
+                qrels_w_neg[q_id][neg_d_id] = -1
+                break
+            
     return qrels_w_neg
 
 
@@ -102,37 +168,47 @@ def get_train_dataloader(
     batch_size: int,
     shuffle: bool = True
 ):
+    """
+    Creates a DataLoader for training. Each batch contains (query, pos, neg) triplets or (query, pos) pairs.
+
+    Args:
+        corpus: Dict mapping corpus_id to content.
+        queries: Dict mapping query_id to content.
+        qrels: Dict mapping query_id to {corpus_id: label}. Label 1 is positive, -1 is negative.
+
+    Returns:
+        DataLoader returning batches of dicts.
+
+    Examples:
+        >>> corpus = {"p1": "positive one", "p2": "positive two", "n": "negative"}
+        >>> queries = {"q1": "query"}
+        >>> qrels = {"q1": {"p1": 1, "p2": 1, "n": -1}}
+        >>> loader = get_train_dataloader(corpus, queries, qrels, batch_size=2, shuffle=False)
+        Loaded 2 training pairs.
+        >>> next(iter(loader))["id_p"]
+        ['p1', 'p2']
+    """
+
     query_ids = list(queries.keys())
     train_samples = []
     for query_id in query_ids:
         s_q = queries[query_id]
-        id_p, s_p, s_n = None, None, None
-        assert len(qrels[query_id]) <= 2
+        positive_ids, s_n = [], None
         for corpus_id, score in qrels[query_id].items():
             if score == 1:
-                id_p = corpus_id
-                s_p = corpus[corpus_id]
+                positive_ids.append(corpus_id)
             if score == -1:
                 s_n = corpus[corpus_id]
-        if s_n is not None:
-            train_samples.append(
-                {
-                    "query_id": query_id,
-                    "id_p": id_p,
-                    "s_q": s_q,
-                    "s_p": s_p,
-                    "s_n": s_n,
-                }
-            )
-        else:
-            train_samples.append(
-                {
-                    "query_id": query_id,
-                    "id_p": id_p,
-                    "s_q": s_q,
-                    "s_p": s_p,
-                }
-            )
+        for id_p in positive_ids:
+            sample = {
+                "query_id": query_id,
+                "id_p": id_p,
+                "s_q": s_q,
+                "s_p": corpus[id_p],
+            }
+            if s_n is not None:
+                sample["s_n"] = s_n
+            train_samples.append(sample)
     print("Loaded {} training pairs.".format(len(train_samples)))
     train_dataloader = DataLoader(
         train_samples, shuffle=shuffle, batch_size=batch_size, collate_fn=collate_fn
@@ -145,6 +221,13 @@ def get_eval_dataloader(
     queries: Dict[str, str],
     batch_size: int
 ):
+    """
+    Creates DataLoaders for evaluation (corpus and queries separately).
+
+    Returns:
+        eval_corpus_dataloader, eval_queries_dataloader
+    """
+
     corpus_ids = list(corpus.keys())
     eval_samples = []
     for corpus_id in corpus_ids:

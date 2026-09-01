@@ -9,27 +9,35 @@ from .base_model import BaseModel
 
 
 class TransformersModel(BaseModel):
-    """Transformers class for Huggingface models.
-    """
+    """Transformers class for Huggingface models."""
 
     def __init__(
         self,
         dataset: SampleDataset,
         model_name: str,
+        dropout: float = 0.1,
     ):
         super(TransformersModel, self).__init__(
             dataset=dataset,
         )
         self.model_name = model_name
-        self.model = AutoModel.from_pretrained(model_name)
-        assert len(self.feature_keys) == 1, "Only one feature key is supported if Transformers is initialized"
+        self.model = AutoModel.from_pretrained(
+            model_name,
+            hidden_dropout_prob=dropout,
+            attention_probs_dropout_prob=dropout,
+        )
+        assert (
+            len(self.feature_keys) == 1
+        ), "Only one feature key is supported if Transformers is initialized"
         self.feature_key = self.feature_keys[0]
-        assert len(self.label_keys) == 1, "Only one label key is supported if RNN is initialized"
+        assert (
+            len(self.label_keys) == 1
+        ), "Only one label key is supported if RNN is initialized"
         self.label_key = self.label_keys[0]
-        self.mode = self.dataset.output_schema[self.label_key]
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         output_size = self.get_output_size()
         hidden_dim = self.model.config.hidden_size
+        self.dropout = nn.Dropout(dropout)
         self.fc = nn.Linear(hidden_dim, output_size)
 
     def forward(self, **kwargs) -> Dict[str, torch.Tensor]:
@@ -43,7 +51,7 @@ class TransformersModel(BaseModel):
         x = x.to(self.device)
         # TODO: should not use pooler_output, but use the last hidden state
         embeddings = self.model(**x).pooler_output
-        logits = self.fc(embeddings)
+        logits = self.fc(self.dropout(embeddings))
         y_true = kwargs[self.label_key].to(self.device)
         loss = self.get_loss_function()(logits, y_true)
         y_prob = self.prepare_y_prob(logits)

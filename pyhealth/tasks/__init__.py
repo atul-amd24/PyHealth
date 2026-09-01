@@ -1,4 +1,7 @@
 from .base_task import BaseTask
+from .benchmark_ehrshot import BenchmarkEHRShot
+from .cancer_survival import CancerMutationBurden, CancerSurvivalPrediction
+from .bmd_hs_disease_classification import BMDHSDiseaseClassification
 from .cardiology_detect import (
     cardiology_isAD_fn,
     cardiology_isAR_fn,
@@ -6,39 +9,58 @@ from .cardiology_detect import (
     cardiology_isCD_fn,
     cardiology_isWA_fn,
 )
+from .chestxray14_binary_classification import ChestXray14BinaryClassification
+from .chestxray14_multilabel_classification import ChestXray14MultilabelClassification
 from .covid19_cxr_classification import COVID19CXRClassification
+from .deid_ner import DeIDNERTask
+from .dka import DKAPredictionMIMIC4, T1DDKAPredictionMIMIC4
 from .drug_recommendation import (
-    drug_recommendation_eicu_fn,
+    DrugRecommendationEICU,
+    DrugRecommendationMIMIC3,
+    DrugRecommendationMIMIC4,
     drug_recommendation_mimic3_fn,
     drug_recommendation_mimic4_fn,
     drug_recommendation_omop_fn,
 )
-from .EEG_abnormal import EEG_isAbnormal_fn
-from .EEG_events import EEG_events_fn
+from .in_hospital_mortality_meds import (
+    InHospitalMortalityMEDS as InHospitalMortalityMEDS,
+)
 from .in_hospital_mortality_mimic4 import InHospitalMortalityMIMIC4
 from .length_of_stay_prediction import (
-    length_of_stay_prediction_eicu_fn,
-    length_of_stay_prediction_mimic3_fn,
-    length_of_stay_prediction_mimic4_fn,
-    length_of_stay_prediction_omop_fn,
+    LengthOfStayPredictioneICU,
+    LengthOfStayPredictionMIMIC3,
+    LengthOfStayPredictionMIMIC4,
+    LengthOfStayPredictionOMOP,
 )
+from .length_of_stay_stagenet_mimic4 import LengthOfStayStageNetMIMIC4
 from .medical_coding import MIMIC3ICD9Coding
 from .medical_transcriptions_classification import MedicalTranscriptionsClassification
 from .mortality_prediction import (
-    mortality_prediction_eicu_fn,
-    mortality_prediction_eicu_fn2,
-    mortality_prediction_mimic3_fn,
-    mortality_prediction_mimic4_fn,
-    mortality_prediction_omop_fn,
+    MortalityPredictionEICU,
+    MortalityPredictionEICU2,
+    MortalityPredictionMIMIC3,
+    MortalityPredictionMIMIC4,
+    MortalityPredictionOMOP,
+    MultimodalMortalityPredictionMIMIC3,
+    MultimodalMortalityPredictionMIMIC4,
+)
+from .survival_preprocess_support2 import SurvivalPreprocessSupport2
+from .mortality_prediction_stagenet_mimic4 import (
+    MortalityPredictionStageNetMIMIC4,
+)
+from .generate_ehr import (
+    EHRGeneration,
+    EHRGenerationMIMIC3,
+    EHRGenerationMIMIC4,
+    decode_dataset,
+    to_evaluation_dataframe,
 )
 from .patient_linkage import patient_linkage_mimic3_fn
-from .readmission_30days_mimic4 import Readmission30DaysMIMIC4
 from .readmission_prediction import (
-    readmission_prediction_eicu_fn,
-    readmission_prediction_eicu_fn2,
-    readmission_prediction_mimic3_fn,
-    readmission_prediction_mimic4_fn,
-    readmission_prediction_omop_fn,
+    ReadmissionPredictionEICU,
+    ReadmissionPredictionMIMIC3,
+    ReadmissionPredictionMIMIC4,
+    ReadmissionPredictionOMOP,
 )
 from .sleep_staging import (
     sleep_staging_isruc_fn,
@@ -46,4 +68,24 @@ from .sleep_staging import (
     sleep_staging_sleepedf_fn,
 )
 from .sleep_staging_v2 import SleepStagingSleepEDF
-from .temple_university_EEG_tasks import EEG_events_fn, EEG_isAbnormal_fn
+from .temple_university_EEG_tasks import (
+    EEGEventsTUEV,
+    EEGAbnormalTUAB
+)
+from .eegbci import (
+    EEGBCIPatternDiscovery as EEGBCIPatternDiscovery,
+    EEGMotorImageryEEGBCI as EEGMotorImageryEEGBCI,
+)
+from .variant_classification import (
+    MutationPathogenicityPrediction,
+    VariantClassificationClinVar,
+)
+from .patient_linkage_mimic3 import PatientLinkageMIMIC3Task
+
+
+def __getattr__(name: str):
+    if name == "MPFClinicalPredictionTask":
+        from .mpf_clinical_prediction import MPFClinicalPredictionTask
+
+        return MPFClinicalPredictionTask
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

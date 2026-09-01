@@ -7,6 +7,7 @@ def register_processor(name: str):
             raise ValueError(f"Processor '{name}' already registered.")
         PROCESSOR_REGISTRY[name] = cls
         return cls
+
     return decorator
 
 
@@ -24,20 +25,61 @@ from .label_processor import (
     MultiLabelProcessor,
     RegressionLabelProcessor,
 )
+from .multi_hot_processor import MultiHotProcessor
+from .nested_sequence_processor import (
+    NestedFloatsProcessor,
+    NestedSequenceProcessor,
+)
+from .deep_nested_sequence_processor import (
+    DeepNestedFloatsProcessor,
+    DeepNestedSequenceProcessor,
+)
+from .raw_processor import RawProcessor
 from .sequence_processor import SequenceProcessor
 from .signal_processor import SignalProcessor
+from .stagenet_processor import (
+    StageNetProcessor,
+    StageNetTensorProcessor,
+)
+from .tensor_processor import TensorProcessor
 from .text_processor import TextProcessor
 from .timeseries_processor import TimeseriesProcessor
+from .time_image_processor import TimeImageProcessor
+from .graph_processor import GraphProcessor
+from .audio_processor import AudioProcessor
+from .ignore_processor import IgnoreProcessor
+from .temporal_timeseries_processor import TemporalTimeseriesProcessor
+from .tuple_time_text_processor import TupleTimeTextProcessor
+from .cehr_processor import CehrProcessor, ConceptVocab
 
 # Expose public API
+from .base_processor import (
+    FeatureProcessor,
+    ModalityType,
+    TemporalFeatureProcessor,
+)
 __all__ = [
-    "get_processor",
+    "FeatureProcessor",
+    "ModalityType",
+    "TemporalFeatureProcessor",
     "ImageProcessor",
+    "LabelProcessor",
+    "MultiHotProcessor",
+    "NestedFloatsProcessor",
+    "NestedSequenceProcessor",
+    "RawProcessor",
     "SequenceProcessor",
-    "TimeseriesProcessor",
     "SignalProcessor",
-    "BinaryLabelProcessor",
-    "MultiClassLabelProcessor",
-    "MultiLabelProcessor",
-    "RegressionLabelProcessor",
+    "StageNetProcessor",
+    "StageNetTensorProcessor",
+    "TensorProcessor",
+    "TemporalTimeseriesProcessor",
+    "TextProcessor",
+    "TimeseriesProcessor",
+    "TimeImageProcessor",
+    "GraphProcessor",
+    "AudioProcessor",
+    "TupleTimeTextProcessor",
+    "CehrProcessor",
+    "ConceptVocab",
 ]

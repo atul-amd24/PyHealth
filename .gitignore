@@ -1,7 +1,9 @@
 .idea
+Dockerfile
+Dockerfile.local
 *DS_Store*
 *output*
-*resource*
+resource*
 
 debug_entry*
 playground.ipynb
@@ -131,3 +133,25 @@ leaderboard/rtd_token.txt
 
 # locally pre-trained models
 pyhealth/medcode/pretrained_embeddings/kg_emb/examples/pretrained_model
+data/physionet.org/
+
+# VSCode settings
+.vscode/
+.codex
+
+# Model weight files (large binaries, distributed separately)
+weightfiles/
+
+# Local / personal (never commit)
+CLAUDE.local.md
+.claude/settings.local.json
+
+# Local test fixtures (download separately; not part of the repo)
+test-resources/core/chestxray14/
+test-resources/meds_demo/
+
+# Local Python environments (not .venv — that pattern is already ignored)
+.venv312/
+
+# Tool caches
+.ruff_cache/

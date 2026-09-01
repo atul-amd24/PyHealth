@@ -11,7 +11,7 @@ from pyhealth.models.medlink import get_bm25_hard_negatives
 from pyhealth.models.medlink import get_eval_dataloader
 from pyhealth.models.medlink import get_train_dataloader
 from pyhealth.models.medlink import tvt_split
-from pyhealth.tasks import patient_linkage_mimic3_fn
+from pyhealth.tasks import PatientLinkageMIMIC3Task
 from pyhealth.trainer import Trainer, logger
 
 """
@@ -29,14 +29,12 @@ USE_BM25_HARDNEGS = False
 base_dataset = MIMIC3Dataset(
     root="/srv/local/data/physionet.org/files/mimiciii/1.4",
     tables=["DIAGNOSES_ICD"],
-    code_mapping={"ICD9CM": ("CCSCM", {})},
-    dev=False,
-    refresh_cache=False,
 )
 base_dataset.stat()
 
 """ STEP 2: set task """
-sample_dataset = base_dataset.set_task(patient_linkage_mimic3_fn)
+task = PatientLinkageMIMIC3Task()
+sample_dataset = base_dataset.set_task(task)
 sample_dataset.stat()
 corpus, queries, qrels, corpus_meta, queries_meta = convert_to_ir_format(
     sample_dataset.samples
